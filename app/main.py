@@ -75,8 +75,8 @@ def show_login_page():
             
             if submitted:
                 try:
-                    user_info = auth_manager.authenticate(username, password)
-                    if user_info:
+                    success, user_info = auth_manager.authenticate(username, password)
+                    if success and user_info:
                         st.session_state.logged_in = True
                         st.session_state.user_info = user_info
                         logger.info(f"用户登录成功: {username}")
