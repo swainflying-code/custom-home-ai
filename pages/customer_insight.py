@@ -151,32 +151,98 @@ def _show_statistics_panel():
 
     customers = get_all_customers()
 
-    if customers:
-        st.success(f"共查询到 {len(customers)} 条客户记录")
-
-        df = pd.DataFrame(customers)
-        st.dataframe(df, use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("🗑️ 删除客户记录")
-        col1, col2 = st.columns(2)
-        with col1:
-            customer_options = {
-                f"{c.get('customer_code', c.get('id', ''))}": c['id']
-                for c in customers
-            }
-            selected_id = st.selectbox("选择要删除的客户", options=list(customer_options.keys()))
-            customer_id_to_delete = customer_options[selected_id]
-
-        with col2:
-            if st.button("确认删除", type="primary", help="删除后无法恢复，请谨慎操作！"):
-                if delete_customer(customer_id_to_delete):
-                    st.success("✅ 删除成功！")
-                    st.rerun()
-                else:
-                    st.error("❌ 删除失败")
-    else:
+    if not customers:
         st.info("暂无客户记录，您可以填写客户调研后提交")
+        return
+
+    # ── 顶部汇总指标 ──────────────────────────────────────────
+    total = len(customers)
+    high_intent = sum(1 for c in customers if "高意向" in (c.get("intent_level") or ""))
+    has_contact = sum(1 for c in customers if c.get("has_contact") == "是")
+    has_appt = sum(1 for c in customers if c.get("has_appointment") not in (None, "无预约", ""))
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("📋 客户总数", total)
+    m2.metric("🔥 高意向客户", high_intent)
+    m3.metric("📞 留联系方式", has_contact)
+    m4.metric("📅 已预约", has_appt)
+
+    st.markdown("---")
+
+    # ── 客户列表（关键字段） ───────────────────────────────────
+    st.subheader("📋 客户记录列表")
+
+    # 构建展示用 DataFrame（只取关键列，避免信息过多）
+    rows = []
+    for c in customers:
+        ai_score = ""
+        raw_ai = c.get("ai_analysis_result")
+        if raw_ai:
+            try:
+                ai_data = json.loads(raw_ai) if isinstance(raw_ai, str) else raw_ai
+                score = ai_data.get("综合评分", {})
+                if score:
+                    ai_score = f"{score.get('总分', '')}分"
+            except Exception:
+                pass
+
+        rows.append({
+            "编号": c.get("customer_code", ""),
+            "姓名": c.get("name", ""),
+            "性别": c.get("gender", ""),
+            "年龄段": c.get("age_group", ""),
+            "来源": c.get("customer_source", ""),
+            "意向等级": c.get("intent_level", ""),
+            "报价态度": c.get("quote_attitude", ""),
+            "已留联系": c.get("has_contact", ""),
+            "预约状态": c.get("has_appointment", ""),
+            "AI评分": ai_score,
+            "登记时间": (c.get("created_at") or "")[:16],
+        })
+
+    df = pd.DataFrame(rows)
+    st.dataframe(df, use_container_width=True, height=400)
+
+    # ── 刚保存的客户高亮提示 ──────────────────────────────────
+    new_id = st.session_state.get("selected_customer_id")
+    if new_id:
+        matched = next((c for c in customers if c.get("id") == new_id), None)
+        if matched:
+            st.success(f"✅ 最新保存：{matched.get('name', '未填姓名')} | {matched.get('customer_code', '')} | 意向：{matched.get('intent_level', '—')}")
+            raw_ai = matched.get("ai_analysis_result")
+            if raw_ai:
+                try:
+                    ai_data = json.loads(raw_ai) if isinstance(raw_ai, str) else raw_ai
+                    if "综合评分" in ai_data:
+                        score = ai_data["综合评分"]
+                        st.info(f"🧠 AI综合评分：**{score.get('总分', '')}分** — {score.get('评分说明', '')}")
+                    if "客户画像标签" in ai_data:
+                        tags = ai_data["客户画像标签"]
+                        st.write("🏷️ 客户标签：" + "  |  ".join(tags))
+                except Exception:
+                    pass
+
+    st.markdown("---")
+
+    # ── 删除客户 ──────────────────────────────────────────────
+    st.subheader("🗑️ 删除客户记录")
+    col1, col2 = st.columns(2)
+    with col1:
+        customer_options = {
+            f"{c.get('name', '未知')} ({c.get('customer_code', c.get('id', ''))[:12]})": c["id"]
+            for c in customers
+        }
+        selected_label = st.selectbox("选择要删除的客户", options=list(customer_options.keys()))
+        customer_id_to_delete = customer_options[selected_label]
+    with col2:
+        st.write("")
+        st.write("")
+        if st.button("确认删除", type="primary", help="删除后无法恢复，请谨慎操作！"):
+            if delete_customer(customer_id_to_delete):
+                st.success("✅ 删除成功！")
+                st.rerun()
+            else:
+                st.error("❌ 删除失败")
 
 
 # ============================================================
@@ -814,12 +880,15 @@ def _step6_confirm_submit():
 
             customer_id = save_customer(data)
             if customer_id:
+                st.balloons()
                 st.success(f"✅ 客户信息保存成功！客户ID：{customer_id}")
-                st.info("📋 所有信息已保存到【客户统计面板】中")
+                # 重置表单状态
                 st.session_state.selected_customer_id = customer_id
                 st.session_state.current_step = 0
                 st.session_state.customer_data = {}
                 st.session_state.ai_analysis_result = None
-                st.balloons()
+                # 自动跳转到统计面板查看结果
+                st.session_state.view_mode = "📊 客户统计面板"
+                st.rerun()
             else:
                 st.error("❌ 保存失败，请检查数据库连接")

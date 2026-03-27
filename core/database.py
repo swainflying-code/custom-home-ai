@@ -148,27 +148,40 @@ class DatabaseManager:
         return None
     
     @handle_db_errors
-    def select(self, table: str, filters: Dict[str, Any] = None, 
+    def select(self, table: str, filters: Dict[str, Any] = None,
                order_by: str = None, limit: int = None) -> List[Dict[str, Any]]:
-        """查询数据"""
+        """查询数据
+        
+        order_by 支持以下格式：
+          - "created_at"          → 升序
+          - "created_at.desc"     → 降序（兼容旧写法，自动解析）
+          - "created_at.asc"      → 升序（兼容旧写法，自动解析）
+        """
         if not self.client:
             raise DatabaseError("数据库未连接")
-        
+
         query = self.client.table(table).select("*")
-        
+
         # 添加过滤条件
         if filters:
             for key, value in filters.items():
                 query = query.eq(key, value)
-        
-        # 添加排序
+
+        # 添加排序（兼容 "col.desc" / "col.asc" / "col" 三种写法）
         if order_by:
-            query = query.order(order_by)
-        
+            if order_by.endswith(".desc"):
+                col = order_by[:-5]
+                query = query.order(col, desc=True)
+            elif order_by.endswith(".asc"):
+                col = order_by[:-4]
+                query = query.order(col, desc=False)
+            else:
+                query = query.order(order_by, desc=False)
+
         # 添加限制
         if limit:
             query = query.limit(limit)
-        
+
         result = query.execute()
         return result.data if result.data else []
     
