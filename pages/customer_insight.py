@@ -250,7 +250,7 @@ def _show_statistics_panel():
 # ============================================================
 
 def _show_survey_form():
-    steps = ["顾客基础&进店信息", "房屋装修", "产品偏好", "客户生活方式", "沟通转化", "需求补充", "确认提交"]
+    steps = ["顾客基础&进店信息", "房屋装修", "产品偏好", "客户生活方式", "沟通转化", "确认提交"]
     current_step = st.session_state.current_step
 
     progress = current_step / (len(steps) - 1)
@@ -279,9 +279,7 @@ def _show_survey_form():
     elif current_step == 4:
         _step4_communication()
     elif current_step == 5:
-        _step5_special_needs()
-    elif current_step == 6:
-        _step6_confirm_submit()
+        _step5_confirm_submit()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -731,12 +729,22 @@ def _step4_communication():
               if st.session_state.customer_data.get("leave_status") in leave_status_options else 2,
         horizontal=True)
 
+    # ── 需求补充（原步骤6，合并至此）────────────────────────────
+    st.markdown("---")
+    st.markdown("#### 📝 特殊需求补充")
+    special_needs = st.text_area("",
+        value=st.session_state.customer_data.get("special_needs", ""),
+        height=100,
+        placeholder="例如：家里有宠物需要特殊设计、有老人需要无障碍设计、特别喜欢某种风格细节...",
+        label_visibility="collapsed")
+
     st.session_state.customer_data.update({
         "quote_type": quote_type, "quote_attitude": quote_attitude,
         "has_contact": has_contact, "contact_type": contact_type,
         "contact_info": contact_info, "intent_level": intent_level,
         "has_appointment": has_appointment, "appointment_time": appointment_time,
         "objection": objection, "leave_status": leave_status,
+        "special_needs": special_needs,
     })
 
     col1, _, _, col4 = st.columns([1, 1, 1, 1])
@@ -751,33 +759,9 @@ def _step4_communication():
 
 
 # ──────────────────────────────────────────────────────────────
-# 步骤 5：需求补充
+# 步骤 5：确认提交 + AI分析（原步骤6，序号调整）
 # ──────────────────────────────────────────────────────────────
-def _step5_special_needs():
-    st.subheader("需求补充")
-
-    special_needs = st.text_area("特殊需求补充",
-        value=st.session_state.customer_data.get("special_needs", ""),
-        height=200,
-        placeholder="例如：家里有宠物需要特殊设计、有老人需要无障碍设计...")
-
-    st.session_state.customer_data.update({"special_needs": special_needs})
-
-    col1, _, _, col4 = st.columns([1, 1, 1, 1])
-    with col1:
-        if st.button("← 上一步", use_container_width=True):
-            st.session_state.current_step = 4
-            st.rerun()
-    with col4:
-        if st.button("下一步 →", type="primary", use_container_width=True):
-            st.session_state.current_step = 6
-            st.rerun()
-
-
-# ──────────────────────────────────────────────────────────────
-# 步骤 6：确认提交 + AI分析
-# ──────────────────────────────────────────────────────────────
-def _step6_confirm_submit():
+def _step5_confirm_submit():
     st.subheader("✅ 确认提交")
 
     st.markdown("### 客户信息汇总")
@@ -848,7 +832,7 @@ def _step6_confirm_submit():
     with col2:
         if st.button("← 上一步", use_container_width=True):
             st.session_state.ai_analysis_result = None
-            st.session_state.current_step = 5
+            st.session_state.current_step = 4
             st.rerun()
 
     with col3:
