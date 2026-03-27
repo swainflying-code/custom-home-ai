@@ -1,0 +1,10 @@
+[server]
+# 禁用 Streamlit 对 pages/ 目录的自动多页面发现
+# 本项目使用手动路由，pages/ 下的文件是业务模块而非独立页面
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
