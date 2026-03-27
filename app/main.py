@@ -94,16 +94,63 @@ def show_login_page():
 
             if submitted:
                 try:
-                    success, user_info = auth_manager.authenticate(username, password)
-                    if success and user_info:
-                        st.session_state.logged_in = True
-                        st.session_state.user_info = user_info
-                        logger.info(f"用户登录成功: {username}")
-                        st.success("✅ 登录成功！正在跳转...")
-                        st.rerun()
+                    # --------------------------------------------------------
+                    # 优先从 Supabase users 表查询用户数据；
+                    # 若 Supabase 未配置或查询失败，则使用内置默认账户兜底。
+                    # --------------------------------------------------------
+                    user_data = None
+
+                    # 1. 尝试从数据库获取用户
+                    try:
+                        result = db.client.table("users").select("*").eq("username", username).execute()
+                        if result.data:
+                            user_data = result.data[0]
+                    except Exception as db_err:
+                        logger.warning(f"数据库查询用户失败（使用默认账户兜底）: {db_err}")
+
+                    # 2. 数据库中没有用户 → 使用内置默认账户
+                    if not user_data:
+                        # 内置账户：admin / admin123
+                        default_users = {
+                            "admin": {
+                                "username": "admin",
+                                "password_hash": auth_manager.generate_password_hash("admin123"),
+                                "role": "admin",
+                                "display_name": "系统管理员",
+                            }
+                        }
+                        # 每次重启哈希值不同（带随机 salt），需要直接比对明文
+                        if username in default_users:
+                            # 对默认账户使用明文比对（内置账户密码固定）
+                            plain_passwords = {"admin": "admin123"}
+                            if plain_passwords.get(username) == password:
+                                st.session_state.logged_in = True
+                                st.session_state.user_info = {
+                                    "username": username,
+                                    "role": "admin",
+                                    "display_name": "系统管理员",
+                                }
+                                logger.info(f"用户登录成功（默认账户）: {username}")
+                                st.success("✅ 登录成功！正在跳转...")
+                                st.rerun()
+                            else:
+                                st.error("❌ 用户名或密码错误")
+                                logger.warning(f"登录失败（默认账户密码错误）: {username}")
+                        else:
+                            st.error("❌ 用户名或密码错误")
+                            logger.warning(f"登录失败（用户不存在）: {username}")
                     else:
-                        st.error("❌ 用户名或密码错误")
-                        logger.warning(f"登录失败: {username}")
+                        # 3. 数据库中存在用户 → 走正常哈希验证
+                        success, user_info = auth_manager.authenticate(username, password, user_data)
+                        if success and user_info:
+                            st.session_state.logged_in = True
+                            st.session_state.user_info = user_info
+                            logger.info(f"用户登录成功: {username}")
+                            st.success("✅ 登录成功！正在跳转...")
+                            st.rerun()
+                        else:
+                            st.error("❌ 用户名或密码错误")
+                            logger.warning(f"登录失败: {username}")
                 except Exception as e:
                     st.error(f"登录异常: {str(e)}")
                     logger.error(f"登录异常: {e}")
