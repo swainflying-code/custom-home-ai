@@ -75,23 +75,23 @@ def show_login_page():
             
             if submitted:
                 try:
-                    # 从数据库查询用户数据
+                    # 查询用户数据
                     users = db.find("users", {"username": username})
-                    if not users:
-                        st.error("❌ 用户名不存在")
-                        return
-                    
-                    user_data = users[0]
-                    success, user_info = auth_manager.authenticate(username, password, user_data)
-                    if success and user_info:
-                        st.session_state.logged_in = True
-                        st.session_state.user_info = user_info
-                        logger.info(f"用户登录成功: {username}")
-                        st.success("✅ 登录成功！正在跳转...")
-                        st.rerun()
+                    if users and len(users) > 0:
+                        user_data = users[0]
+                        success, user_info = auth_manager.authenticate(username, password, user_data)
+                        if success and user_info:
+                            st.session_state.logged_in = True
+                            st.session_state.user_info = user_info
+                            logger.info(f"用户登录成功: {username}")
+                            st.success("✅ 登录成功！正在跳转...")
+                            st.rerun()
+                        else:
+                            st.error("❌ 用户名或密码错误")
+                            logger.warning(f"登录失败: {username}")
                     else:
-                        st.error("❌ 用户名或密码错误")
-                        logger.warning(f"登录失败: {username}")
+                        st.error("❌ 用户名不存在")
+                        logger.warning(f"登录失败，用户不存在: {username}")
                 except Exception as e:
                     st.error(f"登录异常: {str(e)}")
                     logger.error(f"登录异常: {e}")
