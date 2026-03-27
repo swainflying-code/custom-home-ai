@@ -130,23 +130,63 @@ def show_main_app():
     # 主内容区域
     try:
         if selected_page == "客户洞察":
-            from pages.customer_insight import show_customer_insight
-            show_customer_insight()
+            from pages.customer_insight import show_customer_insight_page
+            show_customer_insight_page()
         elif selected_page == "设计辅助":
-            from pages.design_assistant import show_design_assistant
-            show_design_assistant()
+            st.info("🚧 设计辅助功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 🎨 AI智能设计方案生成
+            - 📐 3D空间布局规划
+            - 🖼️ 材质与风格推荐
+            - 💡 灯光与配色方案
+            
+            *预计下周上线*
+            """)
         elif selected_page == "智能报价":
-            from pages.quoting_tool import show_quoting_tool
-            show_quoting_tool()
+            st.info("🚧 智能报价功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 💰 自动成本计算
+            - 📊 实时价格更新
+            - 🎯 精准报价生成
+            - 📋 报价单导出
+            
+            *预计下周上线*
+            """)
         elif selected_page == "客户服务":
-            from pages.customer_service import show_customer_service
-            show_customer_service()
+            st.info("🚧 客户服务功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 💬 AI智能客服对话
+            - 📞 客户跟进记录
+            - 🔔 服务提醒通知
+            - 📈 客户满意度分析
+            
+            *预计下周上线*
+            """)
         elif selected_page == "数据统计":
-            from pages.data_analytics import show_data_analytics
-            show_data_analytics()
+            st.info("🚧 数据统计功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 📊 销售数据可视化
+            - 📈 趋势分析报告
+            - 🎯 转化率追踪
+            - 📋 自定义报表导出
+            
+            *预计下周上线*
+            """)
         elif selected_page == "系统设置":
-            from pages.system_settings import show_system_settings
-            show_system_settings()
+            st.info("🚧 系统设置功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 👥 用户管理
+            - ⚙️ 系统配置
+            - 🔐 权限管理
+            - 📊 日志审计
+            
+            *预计下周上线*
+            """)
     except Exception as e:
         logger.error(f"页面加载失败: {e}", exc_info=True)
         st.error(f"页面加载失败: {str(e)}")

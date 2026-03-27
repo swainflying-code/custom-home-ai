@@ -1,6 +1,6 @@
 """
-全屋定制客户服务AI助手 - 主应用入口
-重构版本 V2.0
+全屋定制客户服务AI助手 - 免登录版本
+重构版本 V2.0 - 临时免认证版本
 """
 
 import os
@@ -13,15 +13,11 @@ sys.path.insert(0, project_root)
 import streamlit as st
 from streamlit_option_menu import option_menu
 from core.config import config
-from core.auth import AuthManager
 from core.database import db
 from utils.logger import setup_logger
 
 # 设置日志
 logger = setup_logger(__name__)
-
-# 初始化认证管理器
-auth_manager = AuthManager()
 
 # 页面配置
 st.set_page_config(
@@ -39,9 +35,13 @@ with open("assets/styles.css", "r", encoding="utf-8") as f:
 def init_session_state():
     """初始化会话状态"""
     defaults = {
-        'logged_in': False,
+        'logged_in': True,  # 临时：默认已登录
         'current_page': '客户洞察',
-        'user_info': None,
+        'user_info': {  # 临时：默认用户信息
+            'username': 'admin',
+            'role': 'admin',
+            'full_name': '系统管理员'
+        },
         'customer_form_state': {},
         'ai_analysis_cache': {}
     }
@@ -51,50 +51,6 @@ def init_session_state():
             st.session_state[key] = default_value
 
 init_session_state()
-
-# 登录页面
-def show_login_page():
-    """显示登录页面"""
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        st.markdown("""
-        <div class="login-container">
-            <h1 class="app-title">🏡 BINK不锈钢定制</h1>
-            <p class="app-subtitle">AI客户服务助手 V2.0</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form("login_form", clear_on_submit=True):
-            username = st.text_input("用户名", placeholder="请输入用户名")
-            password = st.text_input("密码", type="password", placeholder="请输入密码")
-            
-            col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-            with col_btn2:
-                submitted = st.form_submit_button("登录系统", type="primary", use_container_width=True)
-            
-            if submitted:
-                try:
-                    # 查询用户数据
-                    users = db.find("users", {"username": username})
-                    if users and len(users) > 0:
-                        user_data = users[0]
-                        success, user_info = auth_manager.authenticate(username, password, user_data)
-                        if success and user_info:
-                            st.session_state.logged_in = True
-                            st.session_state.user_info = user_info
-                            logger.info(f"用户登录成功: {username}")
-                            st.success("✅ 登录成功！正在跳转...")
-                            st.rerun()
-                        else:
-                            st.error("❌ 用户名或密码错误")
-                            logger.warning(f"登录失败: {username}")
-                    else:
-                        st.error("❌ 用户名不存在")
-                        logger.warning(f"登录失败，用户不存在: {username}")
-                except Exception as e:
-                    st.error(f"登录异常: {str(e)}")
-                    logger.error(f"登录异常: {e}")
 
 # 主应用页面
 def show_main_app():
@@ -141,7 +97,7 @@ def show_main_app():
         st.markdown("---")
         
         # 用户信息
-        if st.session_state.user_info and isinstance(st.session_state.user_info, dict):
+        if st.session_state.user_info:
             st.markdown(f"""
             <div class="user-info">
                 <p><strong>当前用户:</strong><br>{st.session_state.user_info.get('username', '未知')}</p>
@@ -157,103 +113,90 @@ def show_main_app():
             st.markdown("### 📊 快速统计")
             st.metric("总客户数", total_customers)
             st.metric("高意向客户", high_intent)
+            
         except Exception as e:
             logger.warning(f"统计信息加载失败: {e}")
+            st.info("暂无统计数据")
         
         st.markdown("---")
         
         # 退出按钮
-        if st.button("🚪 退出登录", use_container_width=True):
-            auth_manager.logout()
+        if st.button("🚪 退出系统", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.user_info = None
-            st.session_state.customer_form_state = {}
-            st.session_state.ai_analysis_cache = {}
-            logger.info("用户退出登录")
+            st.session_state.current_page = "客户洞察"
             st.rerun()
     
-    # 主内容区
+    # 主内容区域
     try:
-        # 根据选择的页面加载对应模块
         if selected_page == "客户洞察":
             from pages.customer_insight import show_customer_insight_page
             show_customer_insight_page()
-        
         elif selected_page == "设计辅助":
-            from pages.design_assistant import show_design_assistant_page
-            show_design_assistant_page()
-        
+            st.info("🚧 设计辅助功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 🎨 AI智能设计方案生成
+            - 📐 3D空间布局规划
+            - 🖼️ 材质与风格推荐
+            - 💡 灯光与配色方案
+            
+            *预计下周上线*
+            """)
         elif selected_page == "智能报价":
-            from pages.smart_quoting import show_smart_quoting_page
-            show_smart_quoting_page()
-        
+            st.info("🚧 智能报价功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 💰 自动成本计算
+            - 📊 实时价格更新
+            - 🎯 精准报价生成
+            - 📋 报价单导出
+            
+            *预计下周上线*
+            """)
         elif selected_page == "客户服务":
-            from pages.customer_service import show_customer_service_page
-            show_customer_service_page()
-        
+            st.info("🚧 客户服务功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 💬 AI智能客服对话
+            - 📞 客户跟进记录
+            - 🔔 服务提醒通知
+            - 📈 客户满意度分析
+            
+            *预计下周上线*
+            """)
         elif selected_page == "数据统计":
-            from pages.statistics import show_statistics_page
-            show_statistics_page()
-        
+            st.info("🚧 数据统计功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 📊 销售数据可视化
+            - 📈 趋势分析报告
+            - 🎯 转化率追踪
+            - 📋 自定义报表导出
+            
+            *预计下周上线*
+            """)
         elif selected_page == "系统设置":
-            from pages.system_settings import show_system_settings_page
-            show_system_settings_page()
-        
-        else:
-            st.error(f"未知的页面: {selected_page}")
-            logger.error(f"尝试访问未知页面: {selected_page}")
-    
+            st.info("🚧 系统设置功能开发中...")
+            st.markdown("""
+            ### 即将上线功能：
+            - 👥 用户管理
+            - ⚙️ 系统配置
+            - 🔐 权限管理
+            - 📊 日志审计
+            
+            *预计下周上线*
+            """)
     except Exception as e:
+        logger.error(f"页面加载失败: {e}", exc_info=True)
         st.error(f"页面加载失败: {str(e)}")
-        logger.error(f"页面 {selected_page} 加载异常: {e}", exc_info=True)
-        
-        # 显示错误详情（调试用）
-        with st.expander("查看错误详情"):
-            import traceback
-            st.code(traceback.format_exc())
+        st.info("请检查日志获取详细信息")
 
-# 主流程
+# 主程序入口
 if __name__ == "__main__":
     try:
-        # 检查配置（绕过 auth_manager.check_config()，直接检查）
-        if not config.is_valid():
-            missing = config.get_missing_configs()
-            st.error("⚠️ 配置检查失败")
-            st.markdown(f"缺少以下必要配置：\n\n{'\n'.join([f'- **{item}**' for item in missing])}")
-            
-            with st.expander("查看配置说明"):
-                st.markdown("""
-                ### 配置 Streamlit Secrets
-                
-                请在 Streamlit Cloud 的 Secrets 中添加以下配置：
-                
-                ```toml
-                SUPABASE_URL = "https://your-project.supabase.co"
-                SUPABASE_KEY = "your-anon-key"
-                SUPABASE_JWT_SECRET = "your-jwt-secret"
-                MIMO_API_KEY = "your-mimo-key"
-                MIMO_BASE_URL = "https://api.xiaomimimo.com/v1"
-                MIMO_MODEL = "mimo-v2-pro"
-                SECRET_KEY = "your-secret-key"
-                ```
-                
-                ### 获取配置
-                
-                1. **Supabase**: [https://supabase.com](https://supabase.com)
-                2. **MIMO大模型**: [https://xiaomimimo.com](https://xiaomimimo.com)
-                """)
-            st.stop()
-        
-        # 显示登录页面或主应用
-        if not st.session_state.logged_in:
-            show_login_page()
-        else:
-            show_main_app()
-    
+        show_main_app()
     except Exception as e:
-        st.error(f"应用启动失败: {str(e)}")
-        logger.critical(f"应用启动异常: {e}", exc_info=True)
-        # 显示错误详情（调试用）
-        with st.expander("查看错误详情"):
-            import traceback
-            st.code(traceback.format_exc())
+        logger.error(f"应用启动失败: {e}", exc_info=True)
+        st.error("应用启动失败")
+        st.exception(e)
