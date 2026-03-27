@@ -5,6 +5,7 @@ AI服务层
 
 import json
 import logging
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 import openai
 from functools import wraps
@@ -81,38 +82,78 @@ class AIService:
 
 请对客户提供深度分析，返回标准JSON格式。"""
 
-            user_prompt = f"""请对以下不锈钢定制客户进行深度分析：
+            # 将 customer_data 中的 time/datetime 对象转为字符串，避免 json.dumps 报错
+            safe_data = {}
+            for k, v in customer_data.items():
+                if hasattr(v, 'isoformat'):
+                    safe_data[k] = v.isoformat()
+                elif isinstance(v, list):
+                    safe_data[k] = [x.isoformat() if hasattr(x, 'isoformat') else x for x in v]
+                else:
+                    safe_data[k] = v
 
-客户信息:
-{json.dumps(customer_data, ensure_ascii=False, indent=2)}
+            user_prompt = (
+                "请对以下不锈钢定制客户进行深度分析：\n\n"
+                "客户信息:\n"
+                + json.dumps(safe_data, ensure_ascii=False, indent=2)
+                + """
 
-请按照以下结构返回分析结果：
-{{
-  "综合评分": {{
+请严格按照以下JSON结构返回分析结果（不要有任何多余说明，只返回JSON）：
+{
+  "综合评分": {
     "总分": 85,
     "评分说明": "分析说明"
-  }},
+  },
   "客户画像标签": ["标签1", "标签2"],
-  "可成交预期": {{
+  "可成交预期": {
     "预期分数": 78,
     "预期说明": "成交概率分析",
     "建议成交周期": "1周内"
-  }},
-  "详细分析": {{
-    "客户心理画像": {{
+  },
+  "详细分析": {
+    "客户心理画像": {
       "分析结论": "结论",
-      "置信度": "高/中/低",
+      "置信度": "高",
       "具体建议": ["建议1", "建议2"]
-    }},
-    "消费决策特征": {{...}},
-    "设计需求优先级": {{...}},
-    "预算合理性评估": {{...}},
-    "潜在增值服务": {{...}},
-    "沟通建议策略": {{...}},
-    "风险点识别": {{...}},
-    "高成交跟进计划": {{...}}
-  }}
-}}"""
+    },
+    "消费决策特征": {
+      "分析结论": "结论",
+      "置信度": "高",
+      "具体建议": ["建议1"]
+    },
+    "设计需求优先级": {
+      "分析结论": "结论",
+      "置信度": "高",
+      "具体建议": ["建议1"]
+    },
+    "预算合理性评估": {
+      "分析结论": "结论",
+      "置信度": "中",
+      "具体建议": ["建议1"]
+    },
+    "潜在增值服务": {
+      "分析结论": "结论",
+      "置信度": "中",
+      "具体建议": ["建议1"]
+    },
+    "沟通建议策略": {
+      "分析结论": "结论",
+      "置信度": "高",
+      "具体建议": ["建议1", "建议2"]
+    },
+    "风险点识别": {
+      "分析结论": "结论",
+      "置信度": "中",
+      "具体建议": ["建议1"]
+    },
+    "高成交跟进计划": {
+      "分析结论": "结论",
+      "置信度": "高",
+      "具体建议": ["建议1", "建议2", "建议3"]
+    }
+  }
+}"""
+            )
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -136,7 +177,7 @@ class AIService:
             if "error" not in result:
                 result["_success"] = True
                 result["_model"] = self.model
-                result["_timestamp"] = json.dumps("current_time")
+                result["_timestamp"] = datetime.now().isoformat()
             
             return result
             
