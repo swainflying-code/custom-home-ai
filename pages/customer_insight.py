@@ -14,6 +14,10 @@ from core.ai_service import ai_service
 from utils.form_state import FormStateManager
 from utils.validators import validate_customer_data
 from utils.formatters import format_customer_display
+from utils.logger import setup_logger
+
+# 设置日志
+logger = setup_logger(__name__)
 
 
 def show_customer_insight_page():
