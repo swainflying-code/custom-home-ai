@@ -130,16 +130,24 @@ def show_main_app():
     # 主内容区域
     try:
         if selected_page == "客户洞察":
-            from pages.customer_insight import show_customer_insight_page
-            show_customer_insight_page()
+            # 执行客户洞察模块（V1.05迁移过来的代码）
+            exec(open('pages/customer_insight.py', encoding='utf-8').read())
         elif selected_page == "设计辅助":
+            # 设计辅助模块 - 可以从客户洞察获取数据
             st.info("🚧 设计辅助功能开发中...")
             st.markdown("""
-            ### 即将上线功能：
+            ### 设计辅助模块即将上线
+            
+            **功能预览：**
             - 🎨 AI智能设计方案生成
-            - 📐 3D空间布局规划
+            - 📐 3D空间布局规划  
             - 🖼️ 材质与风格推荐
             - 💡 灯光与配色方案
+            
+            **数据集成：**
+            - 客户洞察数据自动同步
+            - 个性化设计建议
+            - 方案自动生成
             
             *预计下周上线*
             """)
