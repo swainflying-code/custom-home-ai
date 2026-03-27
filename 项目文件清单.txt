@@ -1,0 +1,197 @@
+全屋定制客户服务AI助手 V2.0 - 项目文件清单
+=============================================
+
+【核心代码文件】
+├── app/
+│   ├── main.py                                  [NEW] 主应用入口（重构后）
+│   ├── pages/
+│   │   ├── customer_insight.py                 [NEW] 客户洞察页面（重构后）
+│   │   ├── design_assistant.py                 [NEW] 设计辅助页面
+│   │   ├── smart_quoting.py                    [NEW] 智能报价页面
+│   │   ├── customer_service.py                 [NEW] 客户服务页面
+│   │   ├── statistics.py                       [NEW] 数据统计页面
+│   │   └── system_settings.py                  [NEW] 系统设置页面
+│   └── components/
+│       ├── navigation.py                       [NEW] 导航组件
+│       ├── loading.py                          [NEW] 加载组件
+│       └── forms.py                            [NEW] 表单组件
+│
+├── core/
+│   ├── __init__.py                             [NEW] 核心包初始化
+│   ├── config.py                               [NEW] 配置管理模块
+│   ├── database.py                             [NEW] 数据库抽象层
+│   ├── ai_service.py                           [NEW] AI服务层
+│   ├── auth.py                                 [NEW] 认证授权
+│   ├── cache.py                                [NEW] 缓存管理
+│   └── exceptions.py                           [NEW] 异常定义
+│
+├── models/
+│   ├── __init__.py                             [NEW] 模型包初始化
+│   ├── customer.py                             [NEW] 客户数据模型
+│   ├── design.py                               [NEW] 设计需求模型
+│   └── user.py                                 [NEW] 用户模型
+│
+└── utils/
+    ├── __init__.py                             [NEW] 工具包初始化
+    ├── validators.py                           [NEW] 验证器
+    ├── formatters.py                           [NEW] 格式化工具
+    ├── helpers.py                              [NEW] 通用辅助函数
+    ├── form_state.py                           [NEW] 表单状态管理
+    └── logger.py                               [NEW] 日志配置
+
+【配置文件】
+├── requirements.txt                            [UPDATED] 依赖管理（全面更新）
+├── .env.example                                [NEW] 环境变量示例
+├── setup.py                                    [NEW] 快速开始脚本
+├── .gitignore                                  [NEW] Git忽略文件
+├── pyproject.toml                              [NEW] 项目配置
+└── runtime.txt                                 [NEW] Streamlit运行时配置
+
+【文档文件】
+├── README.md                                   [NEW] 项目说明文档
+├── DEPLOY.md                                   [NEW] 详细部署指南
+├── 快速开始指南.md                             [NEW] 快速开始文档
+├── 代码质量分析报告.md                         [NEW] 问题分析报告
+├── 重构实施方案.md                             [NEW] 重构实施计划
+└── 项目文件清单.txt                            [NEW] 本文件清单
+
+【测试文件】
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                             [NEW] pytest配置
+│   ├── test_core/
+│   │   ├── test_config.py                    [NEW] 配置测试
+│   │   ├── test_database.py                  [NEW] 数据库测试
+│   │   ├── test_ai_service.py                [NEW] AI服务测试
+│   │   └── test_auth.py                      [NEW] 认证测试
+│   ├── test_pages/
+│   │   ├── test_customer_insight.py          [NEW] 客户洞察测试
+│   │   └── test_design_assistant.py          [NEW] 设计辅助测试
+│   └── test_utils/
+│       ├── test_validators.py                [NEW] 验证器测试
+│       └── test_formatters.py                [NEW] 格式化测试
+│
+└── .github/workflows/
+    └── deploy.yml                              [NEW] GitHub Actions部署
+
+【静态资源】
+├── assets/
+│   ├── styles.css                              [NEW] 统一样式文件
+│   ├── images/
+│   │   └── logo.png                            [NEW] 应用Logo
+│   └── fonts/                                  [NEW] 自定义字体
+│
+└── docs/
+    ├── architecture.md                         [NEW] 架构文档
+    ├── api.md                                  [NEW] API文档
+    └── database.md                             [NEW] 数据库设计
+
+【部署配置】
+├── Dockerfile                                  [NEW] Docker镜像配置
+├── docker-compose.yml                          [NEW] Docker Compose配置
+├── .dockerignore                               [NEW] Docker忽略文件
+├── nginx.conf                                  [NEW] Nginx配置
+└── supervisord.conf                            [NEW] Supervisor配置
+
+【数据库迁移】
+├── migrations/
+│   ├── 001_create_customers_table.sql          [NEW] 客户表创建
+│   ├── 002_create_design_requests_table.sql    [NEW] 设计需求表创建
+│   ├── 003_create_users_table.sql              [NEW] 用户表创建
+│   └── 004_create_logs_table.sql               [NEW] 日志表创建
+│
+└── scripts/
+    ├── migrate_data.py                         [NEW] 数据迁移脚本
+    ├── backup.py                               [NEW] 备份脚本
+    └── restore.py                              [NEW] 恢复脚本
+
+【原始文件】（备份保留）
+└── backup/
+    └── 全屋定制客户服务AI助手_V1.05.py        [OLD] 原始版本（备份）
+
+================================================================================
+【文件统计】
+================================================================================
+新增文件: 68个
+更新文件: 2个（requirements.txt, 原始代码备份）
+代码总行数: 约5000+ 行（重构后）
+架构层级: 5层（界面层、业务层、核心层、模型层、工具层）
+核心模块: 12个
+页面模块: 6个（完整实现）
+测试覆盖率: > 80%（目标）
+
+================================================================================
+【关键改进】
+================================================================================
+
+1. 架构升级
+   - 从单体架构 → 模块化分层架构
+   - 代码行数从2317行 → 5000+行（含测试和文档）
+   - 文件数量从1个 → 70+个
+
+2. 可维护性提升
+   - 单一职责原则（SRP）
+   - 开闭原则（OCP）
+   - 依赖倒置原则（DIP）
+   - 接口隔离原则（ISP）
+
+3. 性能优化
+   - 多级缓存（数据库、AI结果、页面）
+   - 数据分页（大数据量优化）
+   - 异步处理（非阻塞AI调用）
+   - 图片压缩（减少存储和带宽）
+
+4. 安全性增强
+   - JWT认证 + RBAC权限模型
+   - Pydantic严格数据验证
+   - 完善的错误处理机制
+   - 完整的操作日志记录
+
+5. 开发体验改善
+   - 类型注解（IDE智能提示）
+   - 代码格式化（Black + isort）
+   - 静态检查（mypy）
+   - 单元测试（pytest）
+
+6. 文档完善
+   - 架构文档
+   - API文档
+   - 部署指南
+   - 配置说明
+
+================================================================================
+【下一步行动】
+================================================================================
+
+1. 运行快速开始脚本
+   chmod +x setup.py && python setup.py
+
+2. 配置环境变量
+   编辑 .env 文件，填入必要配置
+
+3. 启动应用
+   streamlit run app/main.py
+
+4. 体验功能
+   - 创建测试客户
+   - 体验AI分析
+   - 尝试设计辅助
+
+5. 定制开发
+   - 根据需求调整配置
+   - 添加自定义功能
+   - 集成其他系统
+
+================================================================================
+【技术支持】
+================================================================================
+
+如有问题，请参考以下文档：
+- README.md - 项目概述
+- 快速开始指南.md - 快速上手
+- DEPLOY.md - 详细部署指南
+- 代码质量分析报告.md - 原有问题分析
+- 重构实施方案.md - 重构详细计划
+
+祝你使用愉快！🎉
+================================================================================
