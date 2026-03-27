@@ -20,7 +20,8 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
-if current_page == "客户洞察":
+# 客户洞察系统主函数
+def show_customer_insight():
     st.header("🎯 客户洞察系统")
     st.markdown("---")
     
@@ -1026,3 +1027,7 @@ if current_page == "客户洞察":
                     else:
                         st.error("❌ 保存失败，请检查数据库连接")
 
+ 
+ #   gbL��[7bm�[�Qpe 
+ s h o w _ c u s t o m e r _ i n s i g h t ( )  
+ 
