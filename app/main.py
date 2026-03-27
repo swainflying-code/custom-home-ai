@@ -134,7 +134,7 @@ def show_main_app():
         st.markdown("---")
         
         # 用户信息
-        if st.session_state.user_info:
+        if st.session_state.user_info and isinstance(st.session_state.user_info, dict):
             st.markdown(f"""
             <div class="user-info">
                 <p><strong>当前用户:</strong><br>{st.session_state.user_info.get('username', '未知')}</p>
