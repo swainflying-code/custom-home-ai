@@ -75,7 +75,14 @@ def show_login_page():
             
             if submitted:
                 try:
-                    success, user_info = auth_manager.authenticate(username, password)
+                    # 从数据库查询用户数据
+                    users = db.find("users", {"username": username})
+                    if not users:
+                        st.error("❌ 用户名不存在")
+                        return
+                    
+                    user_data = users[0]
+                    success, user_info = auth_manager.authenticate(username, password, user_data)
                     if success and user_info:
                         st.session_state.logged_in = True
                         st.session_state.user_info = user_info
