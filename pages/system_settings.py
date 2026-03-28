@@ -59,11 +59,12 @@ def _space_options(spaces):
 def show_system_settings_page():
     st.title("⚙️ 后台管理")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🏪 门店管理",
         "📦 产品目录",
         "🔩 部件价格",
         "🗂️ 空间管理",
+        "💎 报价配置",
         "🔍 数据诊断",
     ])
 
@@ -76,6 +77,8 @@ def show_system_settings_page():
     with tab4:
         _tab_spaces()
     with tab5:
+        _tab_quoting_config()
+    with tab6:
         _tab_diagnostics()
 
 
@@ -575,6 +578,500 @@ def _tab_spaces():
 
 # ──────────────────────────────────────────────────────────────
 # Tab 5：数据诊断
+# ──────────────────────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# Tab 5：报价配置（新系统）
+# ──────────────────────────────────────────────────────────────
+
+def _tab_quoting_config():
+    st.subheader("💎 报价配置")
+    st.caption("管理产品大类、材质单价、台面加项、五金选项——全部动态配置，无需改代码")
+
+    sub1, sub2, sub3, sub4, sub5 = st.tabs([
+        "🏷️ 产品大类",
+        "🗄️ 柜体材质",
+        "🎨 门板/台面材质",
+        "🔧 台面工艺加项",
+        "🔩 五金选项",
+    ])
+    with sub1:
+        _qc_product_types()
+    with sub2:
+        _qc_cabinet_body()
+    with sub3:
+        _qc_surface_materials()
+    with sub4:
+        _qc_countertop_extras()
+    with sub5:
+        _qc_hardware_options()
+
+
+def _qc_product_types():
+    """产品大类管理"""
+    st.markdown("##### 产品大类")
+    st.caption("定义产品类型（如衣柜、橱柜），并指定其计价特性")
+
+    try:
+        pts = db.select("product_types", order_by="sort_order")
+    except Exception:
+        pts = []
+
+    # 新增
+    with st.expander("➕ 新增产品大类", expanded=False):
+        with st.form("form_add_pt"):
+            c1, c2 = st.columns(2)
+            with c1:
+                pt_name = st.text_input("产品名称 *", placeholder="如 衣柜")
+                pt_cat = st.selectbox("类型", ["B - 通用柜（投影面积计价）", "A - 橱柜（延米计价）"])
+            with c2:
+                pt_has_ct = st.checkbox("有台面（如餐边柜、浴室柜）")
+                pt_has_upper = st.checkbox("有上柜（仅橱柜）")
+                pt_sort = st.number_input("排序", value=len(pts)+1, step=1)
+            if st.form_submit_button("保存", type="primary"):
+                if not pt_name.strip():
+                    st.error("名称不能为空")
+                else:
+                    try:
+                        cat = "A" if pt_cat.startswith("A") else "B"
+                        db.insert("product_types", {
+                            "name": pt_name.strip(),
+                            "category": cat,
+                            "has_countertop": pt_has_ct,
+                            "has_upper_cabinet": pt_has_upper,
+                            "sort_order": pt_sort,
+                            "is_active": True
+                        })
+                        st.success(f"✅ 已添加：{pt_name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"失败: {e}")
+
+    st.markdown("---")
+    if not pts:
+        st.info("暂无产品大类，请先新增")
+        return
+
+    for pt in pts:
+        cat_label = "A-橱柜" if pt.get("category") == "A" else "B-通用柜"
+        tags = []
+        if pt.get("has_countertop"): tags.append("有台面")
+        if pt.get("has_upper_cabinet"): tags.append("有上柜")
+        tag_str = "  ".join(f"`{t}`" for t in tags) if tags else ""
+
+        with st.expander(
+            f"{'🟢' if pt.get('is_active') else '🔴'} {pt['name']}  "
+            f"[{cat_label}]  {tag_str}",
+            expanded=False
+        ):
+            with st.form(f"form_edit_pt_{pt['id']}"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    n_name = st.text_input("名称", value=pt.get("name",""))
+                    n_cat_opts = ["B - 通用柜（投影面积计价）", "A - 橱柜（延米计价）"]
+                    cur_cat_idx = 1 if pt.get("category") == "A" else 0
+                    n_cat = st.selectbox("类型", n_cat_opts, index=cur_cat_idx)
+                with c2:
+                    n_has_ct = st.checkbox("有台面", value=pt.get("has_countertop", False))
+                    n_has_upper = st.checkbox("有上柜", value=pt.get("has_upper_cabinet", False))
+                    n_sort = st.number_input("排序", value=int(pt.get("sort_order") or 0), step=1)
+                n_active = st.checkbox("启用", value=pt.get("is_active", True))
+
+                c_s, c_d = st.columns(2)
+                with c_s:
+                    if st.form_submit_button("💾 保存", use_container_width=True):
+                        try:
+                            db.update("product_types", pt["id"], {
+                                "name": n_name,
+                                "category": "A" if n_cat.startswith("A") else "B",
+                                "has_countertop": n_has_ct,
+                                "has_upper_cabinet": n_has_upper,
+                                "sort_order": n_sort,
+                                "is_active": n_active
+                            })
+                            st.success("已更新")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+                with c_d:
+                    if st.form_submit_button("🗑️ 删除", use_container_width=True):
+                        try:
+                            db.delete("product_types", pt["id"])
+                            st.success("已删除")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+
+
+def _qc_cabinet_body():
+    """柜体材质单价管理"""
+    st.markdown("##### 柜体材质单价")
+    st.caption("为每个产品大类配置柜体材质和单价。A类橱柜单位：元/m；B类通用柜单位：元/m²")
+
+    try:
+        pts = db.select("product_types", filters={"is_active": True}, order_by="sort_order")
+        prices = db.select("cabinet_body_prices", order_by="sort_order")
+    except Exception as e:
+        st.error(f"加载失败: {e}")
+        return
+
+    pt_opts = {pt["name"]: pt for pt in pts} if pts else {}
+
+    with st.expander("➕ 新增柜体材质", expanded=False):
+        with st.form("form_add_body"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                if pt_opts:
+                    sel_pt = st.selectbox("产品大类 *", list(pt_opts.keys()))
+                    sel_pt_id = pt_opts[sel_pt]["id"]
+                    sel_pt_cat = pt_opts[sel_pt]["category"]
+                else:
+                    st.warning("请先添加产品大类")
+                    sel_pt_id = None
+                    sel_pt_cat = "B"
+            with c2:
+                b_mat = st.text_input("材质名称 *", placeholder="如 多层实木板")
+                b_pos = st.text_input("位置", value="柜体", placeholder="下柜/上柜/柜体")
+            with c3:
+                default_unit = "元/m" if sel_pt_cat == "A" else "元/m²"
+                b_unit = st.text_input("单位", value=default_unit)
+                b_price = st.number_input("单价 *", min_value=0.0, value=0.0, step=50.0)
+                b_sort = st.number_input("排序", value=0, step=1)
+            if st.form_submit_button("保存", type="primary"):
+                if not b_mat.strip() or not sel_pt_id:
+                    st.error("材质名称和产品大类不能为空")
+                else:
+                    try:
+                        db.insert("cabinet_body_prices", {
+                            "product_type_id": sel_pt_id,
+                            "position": b_pos.strip() or "柜体",
+                            "material": b_mat.strip(),
+                            "unit": b_unit.strip(),
+                            "price": b_price,
+                            "sort_order": b_sort,
+                            "is_active": True
+                        })
+                        st.success(f"✅ 已添加：{b_mat}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"失败: {e}")
+
+    st.markdown("---")
+
+    # 按产品大类分组展示
+    pt_map = {pt["id"]: pt["name"] for pt in pts}
+    from itertools import groupby
+    prices_sorted = sorted(prices, key=lambda x: (pt_map.get(x.get("product_type_id",""), ""), x.get("sort_order") or 0))
+
+    current_group = None
+    for bp in prices_sorted:
+        group = pt_map.get(bp.get("product_type_id",""), "未分类")
+        if group != current_group:
+            st.markdown(f"**── {group} ──**")
+            current_group = group
+
+        with st.expander(
+            f"{'🟢' if bp.get('is_active') else '🔴'} [{bp.get('position','柜体')}] "
+            f"{bp['material']}  ¥{float(bp.get('price',0)):,.0f}/{bp.get('unit','')}",
+            expanded=False
+        ):
+            with st.form(f"form_edit_body_{bp['id']}"):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    n_mat = st.text_input("材质", value=bp.get("material",""))
+                    n_pos = st.text_input("位置", value=bp.get("position","柜体"))
+                with c2:
+                    n_unit = st.text_input("单位", value=bp.get("unit","元/m²"))
+                    n_price = st.number_input("单价", value=float(bp.get("price") or 0), step=50.0)
+                with c3:
+                    n_sort = st.number_input("排序", value=int(bp.get("sort_order") or 0), step=1)
+                    n_active = st.checkbox("启用", value=bp.get("is_active", True))
+                c_s, c_d = st.columns(2)
+                with c_s:
+                    if st.form_submit_button("💾 保存", use_container_width=True):
+                        try:
+                            db.update("cabinet_body_prices", bp["id"], {
+                                "material": n_mat, "position": n_pos,
+                                "unit": n_unit, "price": n_price,
+                                "sort_order": n_sort, "is_active": n_active
+                            })
+                            st.success("已更新")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+                with c_d:
+                    if st.form_submit_button("🗑️ 删除", use_container_width=True):
+                        try:
+                            db.delete("cabinet_body_prices", bp["id"])
+                            st.success("已删除")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+
+
+def _qc_surface_materials():
+    """门板 + 台面材质管理（合并一页）"""
+    st.markdown("##### 门板 & 台面材质")
+    st.caption("门板单位：元/m²；台面单位：元/m（延米）。随时增删，立即生效")
+
+    try:
+        materials = db.select("surface_materials", order_by="sort_order")
+    except Exception as e:
+        st.error(f"加载失败: {e}")
+        return
+
+    door_mats = [m for m in materials if m.get("category") == "门板"]
+    ct_mats   = [m for m in materials if m.get("category") == "台面"]
+
+    # 新增
+    with st.expander("➕ 新增材质", expanded=False):
+        with st.form("form_add_surface"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                sm_cat = st.selectbox("类别 *", ["门板", "台面"])
+                sm_name = st.text_input("材质名称 *", placeholder="如 肤感烤漆 / 岩板20mm")
+            with c2:
+                default_unit = "元/m²" if sm_cat == "门板" else "元/m"
+                sm_unit = st.text_input("单位", value=default_unit)
+                sm_price = st.number_input("单价 *", min_value=0.0, value=0.0, step=10.0)
+            with c3:
+                sm_sort = st.number_input("排序", value=len(materials)+1, step=1)
+            if st.form_submit_button("保存", type="primary"):
+                if not sm_name.strip():
+                    st.error("材质名称不能为空")
+                else:
+                    try:
+                        db.insert("surface_materials", {
+                            "category": sm_cat,
+                            "name": sm_name.strip(),
+                            "unit": sm_unit.strip(),
+                            "price": sm_price,
+                            "sort_order": sm_sort,
+                            "is_active": True
+                        })
+                        st.success(f"✅ 已添加：{sm_name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"失败: {e}")
+
+    st.markdown("---")
+
+    def _render_material_list(mat_list, label):
+        st.markdown(f"**{label}**（共{len(mat_list)}项）")
+        for m in mat_list:
+            with st.expander(
+                f"{'🟢' if m.get('is_active') else '🔴'} {m['name']}  "
+                f"¥{float(m.get('price',0)):,.0f}/{m.get('unit','')}",
+                expanded=False
+            ):
+                with st.form(f"form_edit_sm_{m['id']}"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        n_name = st.text_input("名称", value=m.get("name",""))
+                        n_unit = st.text_input("单位", value=m.get("unit",""))
+                    with c2:
+                        n_price = st.number_input("单价", value=float(m.get("price") or 0), step=10.0)
+                        n_sort = st.number_input("排序", value=int(m.get("sort_order") or 0), step=1)
+                    n_active = st.checkbox("启用", value=m.get("is_active", True))
+                    c_s, c_d = st.columns(2)
+                    with c_s:
+                        if st.form_submit_button("💾 保存", use_container_width=True):
+                            try:
+                                db.update("surface_materials", m["id"], {
+                                    "name": n_name, "unit": n_unit,
+                                    "price": n_price, "sort_order": n_sort,
+                                    "is_active": n_active
+                                })
+                                st.success("已更新")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"失败: {e}")
+                    with c_d:
+                        if st.form_submit_button("🗑️ 删除", use_container_width=True):
+                            try:
+                                db.delete("surface_materials", m["id"])
+                                st.success("已删除")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"失败: {e}")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        _render_material_list(door_mats, "🎨 门板材质")
+    with col_b:
+        _render_material_list(ct_mats, "🪨 台面材质")
+
+
+def _qc_countertop_extras():
+    """台面工艺加项管理"""
+    st.markdown("##### 台面工艺加项")
+    st.caption("可勾选的台面加工选项，如前挡水、圆弧边等。is_default=true 表示默认含在台面基础价里")
+
+    try:
+        extras = db.select("countertop_extras", order_by="sort_order")
+    except Exception as e:
+        st.error(f"加载失败: {e}")
+        return
+
+    with st.expander("➕ 新增加项", expanded=False):
+        with st.form("form_add_ct_extra"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                ex_name = st.text_input("加项名称 *", placeholder="如 前挡水")
+            with c2:
+                ex_unit = st.text_input("单位", value="元/m")
+                ex_price = st.number_input("单价", min_value=0.0, value=0.0, step=5.0)
+            with c3:
+                ex_default = st.checkbox("默认含（价格填0）")
+                ex_sort = st.number_input("排序", value=len(extras)+1, step=1)
+            if st.form_submit_button("保存", type="primary"):
+                if not ex_name.strip():
+                    st.error("名称不能为空")
+                else:
+                    try:
+                        db.insert("countertop_extras", {
+                            "name": ex_name.strip(),
+                            "unit": ex_unit.strip(),
+                            "price": ex_price,
+                            "is_default": ex_default,
+                            "sort_order": ex_sort,
+                            "is_active": True
+                        })
+                        st.success(f"✅ 已添加：{ex_name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"失败: {e}")
+
+    st.markdown("---")
+    for ex in extras:
+        default_tag = " `默认含`" if ex.get("is_default") else ""
+        with st.expander(
+            f"{'🟢' if ex.get('is_active') else '🔴'} {ex['name']}"
+            f"{default_tag}  ¥{float(ex.get('price',0)):,.0f}/{ex.get('unit','')}",
+            expanded=False
+        ):
+            with st.form(f"form_edit_ct_ex_{ex['id']}"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    n_name = st.text_input("名称", value=ex.get("name",""))
+                    n_unit = st.text_input("单位", value=ex.get("unit","元/m"))
+                with c2:
+                    n_price = st.number_input("单价", value=float(ex.get("price") or 0), step=5.0)
+                    n_sort = st.number_input("排序", value=int(ex.get("sort_order") or 0), step=1)
+                n_default = st.checkbox("默认含", value=ex.get("is_default", False))
+                n_active = st.checkbox("启用", value=ex.get("is_active", True))
+                c_s, c_d = st.columns(2)
+                with c_s:
+                    if st.form_submit_button("💾 保存", use_container_width=True):
+                        try:
+                            db.update("countertop_extras", ex["id"], {
+                                "name": n_name, "unit": n_unit,
+                                "price": n_price, "sort_order": n_sort,
+                                "is_default": n_default, "is_active": n_active
+                            })
+                            st.success("已更新")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+                with c_d:
+                    if st.form_submit_button("🗑️ 删除", use_container_width=True):
+                        try:
+                            db.delete("countertop_extras", ex["id"])
+                            st.success("已删除")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+
+
+def _qc_hardware_options():
+    """五金选项管理"""
+    st.markdown("##### 五金选项")
+    st.caption("管理可选五金配件，is_default=true 会在报价页面默认勾选。applicable_to 控制显示范围")
+
+    try:
+        hws = db.select("hardware_options", order_by="sort_order")
+    except Exception as e:
+        st.error(f"加载失败: {e}")
+        return
+
+    with st.expander("➕ 新增五金", expanded=False):
+        with st.form("form_add_hw"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                hw_name = st.text_input("五金名称 *", placeholder="如 抽屉（普通）")
+                hw_applicable = st.text_input("适用范围", value="通用",
+                                               placeholder="通用 / 橱柜 / 衣柜")
+            with c2:
+                hw_unit = st.text_input("单位", value="元/个")
+                hw_price = st.number_input("单价", min_value=0.0, value=0.0, step=5.0)
+            with c3:
+                hw_default = st.checkbox("默认勾选")
+                hw_sort = st.number_input("排序", value=len(hws)+1, step=1)
+            if st.form_submit_button("保存", type="primary"):
+                if not hw_name.strip():
+                    st.error("名称不能为空")
+                else:
+                    try:
+                        db.insert("hardware_options", {
+                            "name": hw_name.strip(),
+                            "unit": hw_unit.strip(),
+                            "price": hw_price,
+                            "is_default": hw_default,
+                            "applicable_to": hw_applicable.strip() or "通用",
+                            "sort_order": hw_sort,
+                            "is_active": True
+                        })
+                        st.success(f"✅ 已添加：{hw_name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"失败: {e}")
+
+    st.markdown("---")
+    for hw in hws:
+        default_tag = " `默认`" if hw.get("is_default") else ""
+        with st.expander(
+            f"{'🟢' if hw.get('is_active') else '🔴'} {hw['name']}"
+            f"{default_tag}  [{hw.get('applicable_to','通用')}]  "
+            f"¥{float(hw.get('price',0)):,.0f}/{hw.get('unit','')}",
+            expanded=False
+        ):
+            with st.form(f"form_edit_hw_{hw['id']}"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    n_name = st.text_input("名称", value=hw.get("name",""))
+                    n_unit = st.text_input("单位", value=hw.get("unit","元/个"))
+                    n_applicable = st.text_input("适用范围", value=hw.get("applicable_to","通用"))
+                with c2:
+                    n_price = st.number_input("单价", value=float(hw.get("price") or 0), step=5.0)
+                    n_sort = st.number_input("排序", value=int(hw.get("sort_order") or 0), step=1)
+                n_default = st.checkbox("默认勾选", value=hw.get("is_default", False))
+                n_active = st.checkbox("启用", value=hw.get("is_active", True))
+                c_s, c_d = st.columns(2)
+                with c_s:
+                    if st.form_submit_button("💾 保存", use_container_width=True):
+                        try:
+                            db.update("hardware_options", hw["id"], {
+                                "name": n_name, "unit": n_unit,
+                                "price": n_price, "applicable_to": n_applicable,
+                                "sort_order": n_sort, "is_default": n_default,
+                                "is_active": n_active
+                            })
+                            st.success("已更新")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+                with c_d:
+                    if st.form_submit_button("🗑️ 删除", use_container_width=True):
+                        try:
+                            db.delete("hardware_options", hw["id"])
+                            st.success("已删除")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"失败: {e}")
+
+
+# ──────────────────────────────────────────────────────────────
+# Tab 6：数据诊断（原Tab 5）
 # ──────────────────────────────────────────────────────────────
 
 def _tab_diagnostics():
