@@ -196,13 +196,20 @@ def _tab_products():
             c1, c2 = st.columns(2)
             with c1:
                 p_space = st.selectbox("所属空间 *", list(space_opts.keys()), key="add_p_space")
-                p_name = st.text_input("产品名称 *", placeholder="如 轻奢岛台款")
-                p_code = st.text_input("产品编号", placeholder="如 KT-LX-01")
+                p_name = st.text_input("产品名称 *", placeholder="如 水槽柜")
+                p_code = st.text_input("产品编号", placeholder="如 KT-SC-01")
             with c2:
                 p_series = st.text_input("所属系列", placeholder="如 高定系列")
                 p_base_price = st.number_input("基础起步价（元）", min_value=0.0, value=0.0, step=100.0)
                 p_unit = st.text_input("计价单位", value="套")
-            p_desc = st.text_area("产品描述", height=80)
+            p_desc = st.text_area("产品描述", height=60)
+            st.markdown("**📐 规格参数配置**（用逗号分隔，留空表示不限）")
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                p_height_opts = st.text_input("高度选项 (mm)", placeholder="如 680,700,720",
+                                               help="报价时显示为下拉选项，影响面积计价部件的价格")
+            with pc2:
+                p_width_opts = st.text_input("宽度选项 (mm)", placeholder="如 800,850,900,1000")
 
             if st.form_submit_button("保存产品", type="primary"):
                 if not p_name.strip():
@@ -218,6 +225,8 @@ def _tab_products():
                             "description": p_desc.strip(),
                             "base_price": p_base_price,
                             "unit": p_unit,
+                            "height_options": p_height_opts.strip() or None,
+                            "width_options": p_width_opts.strip() or None,
                             "is_active": True,
                             "sort_order": 0
                         })
@@ -263,6 +272,16 @@ def _tab_products():
                     new_unit = st.text_input("计价单位", value=p.get("unit", "套"))
                     new_sort = st.number_input("排序", value=int(p.get("sort_order") or 0), step=1)
                 new_desc = st.text_area("描述", value=p.get("description", "") or "", height=60)
+                st.markdown("**📐 规格参数**（逗号分隔，留空表示不限）")
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    new_height_opts = st.text_input("高度选项 (mm)",
+                        value=p.get("height_options", "") or "",
+                        placeholder="如 680,700,720")
+                with ec2:
+                    new_width_opts = st.text_input("宽度选项 (mm)",
+                        value=p.get("width_options", "") or "",
+                        placeholder="如 800,850,900,1000")
                 new_active = st.checkbox("启用", value=p.get("is_active", True))
 
                 c_save, c_del = st.columns(2)
@@ -273,7 +292,9 @@ def _tab_products():
                                 "product_name": new_pname, "product_code": new_pcode,
                                 "series": new_series, "description": new_desc,
                                 "base_price": new_price, "unit": new_unit,
-                                "sort_order": new_sort, "is_active": new_active
+                                "sort_order": new_sort, "is_active": new_active,
+                                "height_options": new_height_opts.strip() or None,
+                                "width_options": new_width_opts.strip() or None,
                             })
                             st.success("已更新")
                             st.rerun()
@@ -295,6 +316,11 @@ def _tab_products():
 
 PART_CATEGORIES = ["柜体", "门板", "台面", "五金", "电器", "灯光", "其他"]
 PRICE_UNITS = ["元/延米", "元/㎡", "元/个", "元/组", "元/套", "元/扇", "元/米"]
+PRICE_TYPES = {
+    "fixed":    "💰 固定单价（数量 × 单价）",
+    "area":     "📐 面积计价（高度 × 宽度 × 单价/㎡）",
+    "included": "✅ 已包含（不另计费）",
+}
 
 def _tab_parts():
     st.subheader("部件 & 价格管理")
@@ -344,24 +370,27 @@ def _tab_parts():
             with c2:
                 spec_name = st.text_input("规格名称 *", placeholder="如 哑光钢灰平板门")
                 spec_code = st.text_input("规格编号", placeholder="如 MP-AG-01")
+                price_type_label = st.selectbox("计价方式", list(PRICE_TYPES.values()))
             with c3:
-                price = st.number_input("单价 *", min_value=0.0, value=0.0, step=10.0)
+                price = st.number_input("单价 *", min_value=0.0, value=0.0, step=10.0,
+                                        help="fixed=每个单价；area=每㎡单价；included=填0")
                 price_unit = st.selectbox("价格单位", PRICE_UNITS)
                 min_qty = st.number_input("最小数量", min_value=0.1, value=1.0, step=0.5)
             remark = st.text_input("备注说明", placeholder="如 需额外3个工作日")
             sort_order = st.number_input("排序", value=0, step=1)
 
             if st.form_submit_button("保存部件", type="primary"):
+                # 反查 price_type key
+                pt_key = next(k for k, v in PRICE_TYPES.items() if v == price_type_label)
                 if not part_name.strip() or not spec_name.strip():
                     st.error("部件名称和规格名称不能为空")
-                elif price <= 0:
+                elif price <= 0 and pt_key != "included":
                     st.warning("⚠️ 单价为0，请确认是否正确")
-                    # 仍然允许保存
                     _save_part(sel_prod_id, part_name, part_cat, spec_name, spec_code,
-                               price, price_unit, min_qty, is_required, sort_order, remark)
+                               price, price_unit, min_qty, is_required, sort_order, remark, pt_key)
                 else:
                     _save_part(sel_prod_id, part_name, part_cat, spec_name, spec_code,
-                               price, price_unit, min_qty, is_required, sort_order, remark)
+                               price, price_unit, min_qty, is_required, sort_order, remark, pt_key)
 
     # ── 部件列表 ──
     st.markdown("---")
@@ -385,10 +414,12 @@ def _tab_parts():
             current_cat = cat
 
         req_badge = " 🔴必选" if part.get("is_required") else ""
+        pt = part.get("price_type") or "fixed"
+        pt_icon = "📐" if pt == "area" else "✅" if pt == "included" else "💰"
         with st.expander(
             f"{'🔩' if cat=='五金' else '🪵' if cat in ('柜体','门板','台面') else '⚡' if cat=='电器' else '📌'} "
             f"{part['part_name']} · {part['spec_name']}  "
-            f"¥{part.get('price',0):,.0f}/{part.get('price_unit','元')}{req_badge}",
+            f"{pt_icon} ¥{part.get('price',0):,.0f}/{part.get('price_unit','元')}{req_badge}",
             expanded=False
         ):
             with st.form(f"form_edit_part_{part['id']}"):
@@ -402,6 +433,10 @@ def _tab_parts():
                 with c2:
                     n_spec = st.text_input("规格名称", value=part.get("spec_name", ""))
                     n_code = st.text_input("规格编号", value=part.get("spec_code", "") or "")
+                    pt_labels = list(PRICE_TYPES.values())
+                    pt_keys   = list(PRICE_TYPES.keys())
+                    cur_pt_idx = pt_keys.index(pt) if pt in pt_keys else 0
+                    n_pt_label = st.selectbox("计价方式", pt_labels, index=cur_pt_idx)
                 with c3:
                     n_price = st.number_input("单价", value=float(part.get("price") or 0), step=10.0)
                     n_punit = st.selectbox("价格单位", PRICE_UNITS,
@@ -415,11 +450,13 @@ def _tab_parts():
                 c_save, c_del = st.columns(2)
                 with c_save:
                     if st.form_submit_button("💾 保存", use_container_width=True):
+                        n_pt_key = pt_keys[pt_labels.index(n_pt_label)]
                         try:
                             db.update("product_parts", part["id"], {
                                 "part_name": n_pname, "part_category": n_cat,
                                 "spec_name": n_spec, "spec_code": n_code,
                                 "price": n_price, "price_unit": n_punit,
+                                "price_type": n_pt_key,
                                 "min_qty": n_minqty, "is_required": n_req,
                                 "sort_order": n_sort, "remark": n_remark,
                                 "is_active": n_active
@@ -439,7 +476,8 @@ def _tab_parts():
 
 
 def _save_part(prod_id, part_name, part_cat, spec_name, spec_code,
-               price, price_unit, min_qty, is_required, sort_order, remark):
+               price, price_unit, min_qty, is_required, sort_order, remark,
+               price_type="fixed"):
     try:
         db.insert("product_parts", {
             "product_id": prod_id,
@@ -449,6 +487,7 @@ def _save_part(prod_id, part_name, part_cat, spec_name, spec_code,
             "spec_code": spec_code.strip(),
             "price": price,
             "price_unit": price_unit,
+            "price_type": price_type,
             "min_qty": min_qty,
             "is_required": is_required,
             "sort_order": sort_order,

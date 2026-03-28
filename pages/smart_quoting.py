@@ -172,6 +172,53 @@ def _section_header():
 
 
 # ──────────────────────────────────────────────────────────────
+# 规格参数解析工具
+# ──────────────────────────────────────────────────────────────
+
+def _parse_options(raw) -> list:
+    """解析逗号分隔的规格选项字符串，返回数字列表，如 '680,700,720' → [680,700,720]"""
+    if not raw:
+        return []
+    import re
+    parts = re.split(r"[,，\s]+", str(raw).strip())
+    result = []
+    for p in parts:
+        p = p.strip()
+        if p:
+            try:
+                result.append(int(float(p)))
+            except ValueError:
+                result.append(p)
+    return result
+
+
+def _calc_part_price(part: dict, height: float, width: float) -> tuple[float, str]:
+    """
+    根据 price_type 计算部件单价和描述。
+    返回 (line_total, price_desc)
+    price_type:
+      fixed    → 固定价格，直接取 part['price']
+      included → 已包含，价格为 0
+      area     → 面积计价，height(mm)/1000 * width(mm)/1000 * price/㎡
+                 或 height * width 均以毫米传入时换算成米
+    """
+    price_type = part.get("price_type") or "fixed"
+    unit_price  = float(part.get("price") or 0)
+
+    if price_type == "included":
+        return 0.0, "已包含"
+    elif price_type == "area":
+        # 高度/宽度单位为 mm，转换为 m 再算面积
+        h_m = height / 1000.0
+        w_m = width  / 1000.0
+        area = h_m * w_m
+        total = round(area * unit_price, 2)
+        return total, f"{h_m:.3f}m × {w_m:.3f}m × ¥{unit_price:,.0f}/㎡ = ¥{total:,.0f}"
+    else:  # fixed
+        return unit_price, f"¥{unit_price:,.0f} / {part.get('price_unit','个')}"
+
+
+# ──────────────────────────────────────────────────────────────
 # Section 2：添加产品+部件
 # ──────────────────────────────────────────────────────────────
 
@@ -209,13 +256,41 @@ def _section_add_items():
     if sel_prod.get("description"):
         st.caption(f"📌 {sel_prod['description']}")
 
+    # ── 规格参数选择（高度 / 宽度）──
+    height_opts = _parse_options(sel_prod.get("height_options"))
+    width_opts  = _parse_options(sel_prod.get("width_options"))
+
+    sel_height = None
+    sel_width  = None
+    has_params = bool(height_opts or width_opts)
+
+    if has_params:
+        st.markdown("**📐 选择产品规格尺寸：**")
+        pc1, pc2, pc3 = st.columns(3)
+        with pc1:
+            if height_opts:
+                h_labels = [f"{v} mm" for v in height_opts]
+                h_idx = st.selectbox("高度", h_labels, key="item_height")
+                sel_height = height_opts[h_labels.index(h_idx)]
+            else:
+                sel_height = st.number_input("高度 (mm)", min_value=100, value=720, step=10, key="item_height_num")
+        with pc2:
+            if width_opts:
+                w_labels = [f"{v} mm" for v in width_opts]
+                w_idx = st.selectbox("宽度", w_labels, key="item_width")
+                sel_width = width_opts[w_labels.index(w_idx)]
+            else:
+                sel_width = st.number_input("宽度 (mm)", min_value=100, value=800, step=50, key="item_width_num")
+        with pc3:
+            if sel_height and sel_width:
+                area = (sel_height / 1000) * (sel_width / 1000)
+                st.metric("展开面积", f"{area:.3f} ㎡")
+
     # 加载部件
     parts = _load_parts(product_id=sel_prod["id"])
 
     if not parts:
         st.info("该产品暂无部件配置，请前往「后台管理 → 部件价格」添加")
-        st.caption(f"🔍 调试：产品ID = `{sel_prod['id']}`，产品名 = {sel_prod['product_name']}")
-        # 仍可按产品基础价添加
         base_price = float(sel_prod.get("base_price") or 0)
         if base_price > 0:
             c1, c2, c3 = st.columns([2, 1, 1])
@@ -240,11 +315,14 @@ def _section_add_items():
                     })
         return
 
-    # 按分类展示部件
-    from itertools import groupby
+    # ── 按分类展示部件 ──
     parts_sorted = sorted(parts, key=lambda x: (x.get("part_category") or "其他", x.get("sort_order") or 0))
 
-    st.markdown("**选择部件规格，填写用量后加入报价：**")
+    st.markdown("**选择部件规格，确认后加入报价单：**")
+
+    # 没有尺寸参数时默认 0，不影响 fixed/included 计价
+    h = float(sel_height or 0)
+    w = float(sel_width or 0)
 
     cat_map = {}
     for part in parts_sorted:
@@ -254,32 +332,57 @@ def _section_add_items():
     for cat, cat_parts in cat_map.items():
         st.markdown(f"**{cat}**")
         for part in cat_parts:
+            price_type = part.get("price_type") or "fixed"
             req = " 🔴" if part.get("is_required") else ""
-            c1, c2, c3, c4 = st.columns([3, 1.5, 1, 1])
+            line_total, price_desc = _calc_part_price(part, h, w)
+            unit_price = float(part.get("price") or 0)
+
+            c1, c2, c3, c4 = st.columns([3.5, 1.2, 1.2, 0.8])
             with c1:
                 label = f"{part['part_name']} · {part['spec_name']}{req}"
                 if part.get("remark"):
                     label += f"  _{part['remark']}_"
                 st.markdown(f"&nbsp;&nbsp;{label}", unsafe_allow_html=False)
-                st.caption(f"¥{part.get('price',0):,.0f} / {part.get('price_unit','元')}")
+                # 计价说明
+                if price_type == "included":
+                    st.caption("✅ 已包含，不另计费")
+                elif price_type == "area":
+                    st.caption(f"📐 面积计价：{price_desc}" if (h and w) else f"📐 面积计价：¥{unit_price:,.0f}/㎡（请先选择尺寸）")
+                else:
+                    st.caption(f"¥{unit_price:,.0f} / {part.get('price_unit','个')}")
+
             with c2:
-                qty = st.number_input(
-                    "用量",
-                    min_value=0.0,
-                    value=float(part.get("min_qty") or 1),
-                    step=0.5,
-                    key=f"qty_{part['id']}",
-                    label_visibility="collapsed"
-                )
+                # included 类型不需要填数量
+                if price_type == "included":
+                    qty = 1.0
+                    st.markdown("——")
+                elif price_type == "area":
+                    # 面积已由尺寸决定，数量默认1（可改为延米/套数）
+                    qty = st.number_input(
+                        "套数", min_value=1.0, value=1.0, step=1.0,
+                        key=f"qty_{part['id']}", label_visibility="collapsed"
+                    )
+                else:
+                    qty = st.number_input(
+                        "数量", min_value=0.0,
+                        value=float(part.get("min_qty") or 1),
+                        step=0.5,
+                        key=f"qty_{part['id']}",
+                        label_visibility="collapsed"
+                    )
+
             with c3:
-                unit_price = float(part.get("price") or 0)
-                line = unit_price * qty
-                st.markdown(f"**¥{line:,.0f}**")
+                actual_total = line_total * qty if price_type != "area" else line_total * qty
+                if price_type == "included":
+                    st.markdown("**已含**")
+                else:
+                    st.markdown(f"**¥{actual_total:,.0f}**")
+
             with c4:
-                if st.button("➕", key=f"add_{part['id']}", help="加入报价单", use_container_width=True):
-                    if qty <= 0:
-                        st.warning("用量必须大于0")
-                    else:
+                if price_type == "included":
+                    # included 直接一键加入，不需要用户操作
+                    if st.button("含✓", key=f"add_{part['id']}", help="已包含项，点击加入记录",
+                                 use_container_width=True, disabled=False):
                         _add_item({
                             "space_name": sel_space["space_name"],
                             "product_name": sel_prod["product_name"],
@@ -287,12 +390,35 @@ def _section_add_items():
                             "part_id": part["id"],
                             "part_name": part["part_name"],
                             "spec_name": part["spec_name"],
-                            "unit_price": unit_price,
-                            "price_unit": part.get("price_unit", "元"),
-                            "quantity": qty,
-                            "line_total": line,
-                            "remark": part.get("remark", ""),
+                            "unit_price": 0.0,
+                            "price_unit": "已含",
+                            "quantity": 1,
+                            "line_total": 0.0,
+                            "remark": "已包含",
                         })
+                else:
+                    if st.button("➕", key=f"add_{part['id']}", help="加入报价单", use_container_width=True):
+                        if price_type != "area" and qty <= 0:
+                            st.warning("数量必须大于0")
+                        elif price_type == "area" and not (h and w):
+                            st.warning("请先选择高度和宽度")
+                        else:
+                            spec_label = part["spec_name"]
+                            if has_params and (h or w):
+                                spec_label += f"（{int(h)}×{int(w)}mm）"
+                            _add_item({
+                                "space_name": sel_space["space_name"],
+                                "product_name": sel_prod["product_name"],
+                                "product_id": sel_prod["id"],
+                                "part_id": part["id"],
+                                "part_name": part["part_name"],
+                                "spec_name": spec_label,
+                                "unit_price": unit_price,
+                                "price_unit": part.get("price_unit", "元"),
+                                "quantity": qty,
+                                "line_total": actual_total,
+                                "remark": part.get("remark", ""),
+                            })
 
 
 def _add_item(item: dict):
