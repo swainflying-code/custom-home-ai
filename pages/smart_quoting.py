@@ -368,7 +368,7 @@ def _render_kitchen_form(pt, space_label, body_mat_opts, has_upper,
 
     # ── 加入报价单 ──
     if st.button("➕ 加入报价单", type="primary", key="kt_add", use_container_width=True):
-        space = space_label.strip() or sel_pt_name
+        space = space_label.strip() or pt["name"]
         item = {
             "_id": str(uuid.uuid4())[:8],
             "space_name": space,
