@@ -75,6 +75,12 @@ class DatabaseManager:
             return [value] if value.strip() else []
         return [str(value)]
     
+    # uuid 类型字段名集合：这些字段 None 必须保持 None，不能转为空字符串
+    _UUID_FIELDS = {
+        "id", "store_id", "customer_id", "product_id", "part_id",
+        "quote_id", "space_id", "user_id", "owner_id", "parent_id",
+    }
+
     def _clean_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """清理和标准化数据"""
         cleaned = {}
@@ -89,7 +95,10 @@ class DatabaseManager:
             # 处理布尔值
             elif isinstance(value, bool):
                 cleaned[key] = value
-            # 其他类型转换为字符串
+            # uuid 字段：None 保持 None，空字符串也转为 None（PostgreSQL uuid 列不接受 ""）
+            elif key in self._UUID_FIELDS:
+                cleaned[key] = value if value else None
+            # 其他类型：None 转为空字符串
             else:
                 cleaned[key] = value if value is not None else ""
         
