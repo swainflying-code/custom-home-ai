@@ -158,8 +158,27 @@ def _tab_stores():
                     if s.get("store_code") != "DEFAULT":
                         if st.form_submit_button("🗑️ 删除门店", use_container_width=True):
                             try:
+                                # 1. 把该门店下的报价单迁移到 DEFAULT 门店
+                                default_stores = db.select("stores", filters={"store_code": "DEFAULT"})
+                                if default_stores:
+                                    default_id = default_stores[0]["id"]
+                                    # 迁移 quotes
+                                    try:
+                                        db.supabase.table("quotes").update(
+                                            {"store_id": default_id}
+                                        ).eq("store_id", s["id"]).execute()
+                                    except Exception:
+                                        pass
+                                    # 迁移 products（产品目录）
+                                    try:
+                                        db.supabase.table("products").update(
+                                            {"store_id": default_id}
+                                        ).eq("store_id", s["id"]).execute()
+                                    except Exception:
+                                        pass
+                                # 2. 删除门店
                                 db.delete("stores", s["id"])
-                                st.success("已删除")
+                                st.success("✅ 门店已删除，关联报价单已迁移至默认门店")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"删除失败: {e}")
