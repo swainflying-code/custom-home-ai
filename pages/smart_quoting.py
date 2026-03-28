@@ -415,14 +415,14 @@ def _save_quote(subtotal, discount_amount, total):
             "status": "draft",
         })
 
-        # 保存明细
+        # 保存明细（uuid 字段空字符串统一转 None）
         for idx, item in enumerate(st.session_state.quote_items):
             db.insert("quote_items", {
                 "quote_id": qid,
                 "space_name": item.get("space_name"),
                 "product_name": item.get("product_name"),
-                "product_id": item.get("product_id"),
-                "part_id": item.get("part_id"),
+                "product_id": item.get("product_id") or None,
+                "part_id": item.get("part_id") or None,
                 "part_name": item.get("part_name"),
                 "spec_name": item.get("spec_name"),
                 "unit_price": item.get("unit_price"),

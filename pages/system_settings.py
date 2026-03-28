@@ -59,11 +59,12 @@ def _space_options(spaces):
 def show_system_settings_page():
     st.title("⚙️ 后台管理")
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🏪 门店管理",
         "📦 产品目录",
         "🔩 部件价格",
         "🗂️ 空间管理",
+        "🔍 数据诊断",
     ])
 
     with tab1:
@@ -74,6 +75,8 @@ def show_system_settings_page():
         _tab_parts()
     with tab4:
         _tab_spaces()
+    with tab5:
+        _tab_diagnostics()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -529,3 +532,65 @@ def _tab_spaces():
                             st.rerun()
                         except Exception as e:
                             st.error(f"删除失败: {e}")
+
+
+# ──────────────────────────────────────────────────────────────
+# Tab 5：数据诊断
+# ──────────────────────────────────────────────────────────────
+
+def _tab_diagnostics():
+    st.subheader("🔍 数据诊断")
+    st.caption("检查产品与部件的关联关系，排查「无部件配置」问题")
+
+    stores = _load_stores()
+    spaces = _load_spaces()
+
+    if not stores:
+        st.warning("暂无门店数据")
+        return
+
+    store_opts = _store_options(stores)
+    sel_store_label = st.selectbox("选择门店", list(store_opts.keys()), key="diag_store")
+    sel_store_id = store_opts[sel_store_label]
+
+    # 加载该门店所有产品
+    try:
+        all_products = db.select("products", filters={"store_id": sel_store_id}, order_by="space_id")
+    except Exception as e:
+        st.error(f"加载产品失败: {e}")
+        return
+
+    if not all_products:
+        st.info("该门店暂无产品")
+        return
+
+    # 构建空间名称映射
+    space_map = {s["id"]: s["space_name"] for s in spaces}
+
+    st.markdown(f"**共 {len(all_products)} 个产品**")
+    st.markdown("---")
+
+    for prod in all_products:
+        pid = prod["id"]
+        pname = prod.get("product_name", "未知")
+        space_name = space_map.get(prod.get("space_id", ""), "未知空间")
+
+        # 查该产品的部件数量
+        try:
+            parts = db.select("product_parts", filters={"product_id": pid})
+            part_count = len(parts) if parts else 0
+        except Exception:
+            part_count = -1
+
+        status_icon = "✅" if part_count > 0 else "❌"
+        with st.expander(f"{status_icon} [{space_name}] {pname} — {part_count} 个部件", expanded=(part_count == 0)):
+            st.code(f"product_id = {pid}", language="text")
+            col_a, col_b = st.columns(2)
+            col_a.write(f"**门店**：{sel_store_label}")
+            col_b.write(f"**空间**：{space_name}")
+            if part_count == 0:
+                st.warning("⚠️ 该产品没有部件！请在「部件价格」Tab 里选中此产品并添加部件。")
+                st.caption(f"提示：在「部件价格」Tab 中，选择门店「{sel_store_label}」→ 空间「{space_name}」→ 产品「{pname}」，然后新增部件规格。")
+            else:
+                for p in parts:
+                    st.markdown(f"- `{p.get('part_name','')}` · {p.get('spec_name','')} · ¥{p.get('price',0)}/{p.get('price_unit','元')}")
