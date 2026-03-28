@@ -214,6 +214,7 @@ def _section_add_items():
 
     if not parts:
         st.info("该产品暂无部件配置，请前往「后台管理 → 部件价格」添加")
+        st.caption(f"🔍 调试：产品ID = `{sel_prod['id']}`，产品名 = {sel_prod['product_name']}")
         # 仍可按产品基础价添加
         base_price = float(sel_prod.get("base_price") or 0)
         if base_price > 0:
@@ -351,13 +352,15 @@ def _section_summary():
     # ── 折扣 & 合计 ──
     c_disc, c_remark = st.columns(2)
     with c_disc:
-        discount = st.slider(
+        # 用整数百分比 50-100 操作，避免 format="%.0f%%" 把 0.95 显示成 1%
+        discount_pct = st.slider(
             "整单折扣",
-            min_value=0.5, max_value=1.0, step=0.05,
-            value=st.session_state.quote_discount,
-            format="%.0f%%",
-            help="1.0 = 不打折，0.9 = 九折"
+            min_value=50, max_value=100, step=5,
+            value=int(round(st.session_state.quote_discount * 100)),
+            format="%d%%",
+            help="100% = 不打折，90% = 九折，50% = 五折"
         )
+        discount = discount_pct / 100.0
         st.session_state.quote_discount = discount
     with c_remark:
         remark = st.text_area("报价备注", value=st.session_state.quote_remark,
@@ -391,10 +394,13 @@ def _save_quote(subtotal, discount_amount, total):
 
     quote_no = _gen_quote_no()
     try:
+        # 空字符串不能写 uuid 列，转为 None
+        cust_id = st.session_state.quote_customer_id or None
+
         qid = db.insert("quotes", {
             "quote_no": quote_no,
             "store_id": st.session_state.quote_store_id,
-            "customer_id": st.session_state.quote_customer_id,
+            "customer_id": cust_id,
             "customer_name": st.session_state.quote_customer_name,
             "customer_phone": st.session_state.quote_customer_phone,
             "designer_name": st.session_state.quote_designer,

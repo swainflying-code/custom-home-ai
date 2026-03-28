@@ -236,18 +236,21 @@ def _call_design_analysis(prompt_data: Dict[str, Any]) -> Dict[str, Any]:
             max_tokens=2048,
             temperature=0.7,
         )
-        raw = response.choices[0].message.content
+        raw = response.choices[0].message.content or ""
         # 尝试解析JSON
         cleaned = raw.strip()
+        # 去除各种 markdown 代码块包裹
         for prefix in ["```json", "```"]:
             if cleaned.startswith(prefix):
                 cleaned = cleaned[len(prefix):]
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
-        return json.loads(cleaned.strip())
-    except json.JSONDecodeError:
-        # 返回原文
-        return {"设计主题": "AI建议（原文）", "raw": raw}
+        cleaned = cleaned.strip()
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            # JSON解析失败时，把原始文本包装成字典返回，确保页面能正常展示
+            return {"设计主题": "AI建议", "核心风格定义": raw, "raw": raw}
     except Exception as e:
         logger.error(f"AI设计分析失败: {e}")
         return {"error": str(e)}
