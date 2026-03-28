@@ -387,6 +387,14 @@ def _section_summary():
             _export_pdf(subtotal, discount_amount, total)
 
 
+def _uuid_or_none(v):
+    """确保 uuid 字段不传空字符串，一律转为 None"""
+    if not v:
+        return None
+    s = str(v).strip()
+    return s if s else None
+
+
 def _save_quote(subtotal, discount_amount, total):
     if not st.session_state.quote_store_id:
         st.error("请先选择门店")
@@ -394,12 +402,12 @@ def _save_quote(subtotal, discount_amount, total):
 
     quote_no = _gen_quote_no()
     try:
-        # 空字符串不能写 uuid 列，转为 None
-        cust_id = st.session_state.quote_customer_id or None
+        cust_id  = _uuid_or_none(st.session_state.quote_customer_id)
+        store_id = _uuid_or_none(st.session_state.quote_store_id)
 
         qid = db.insert("quotes", {
             "quote_no": quote_no,
-            "store_id": st.session_state.quote_store_id,
+            "store_id": store_id,
             "customer_id": cust_id,
             "customer_name": st.session_state.quote_customer_name,
             "customer_phone": st.session_state.quote_customer_phone,
@@ -418,11 +426,11 @@ def _save_quote(subtotal, discount_amount, total):
         # 保存明细（uuid 字段空字符串统一转 None）
         for idx, item in enumerate(st.session_state.quote_items):
             db.insert("quote_items", {
-                "quote_id": qid,
+                "quote_id": _uuid_or_none(qid),
                 "space_name": item.get("space_name"),
                 "product_name": item.get("product_name"),
-                "product_id": item.get("product_id") or None,
-                "part_id": item.get("part_id") or None,
+                "product_id": _uuid_or_none(item.get("product_id")),
+                "part_id": _uuid_or_none(item.get("part_id")),
                 "part_name": item.get("part_name"),
                 "spec_name": item.get("spec_name"),
                 "unit_price": item.get("unit_price"),
