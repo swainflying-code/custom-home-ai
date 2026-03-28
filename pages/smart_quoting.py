@@ -970,6 +970,30 @@ def _section_quote_list():
         st.info("暂无报价记录")
         return
 
+    # ── 快捷操作栏 ──
+    draft_ids = [q["id"] for q in quotes if q.get("status", "draft") == "draft"]
+    c_info, c_btn = st.columns([3, 1])
+    with c_info:
+        st.caption(f"共 {len(quotes)} 条记录，其中草稿 {len(draft_ids)} 条")
+    with c_btn:
+        if draft_ids and st.button("🗑️ 清空所有草稿", use_container_width=True, type="secondary"):
+            try:
+                for qid in draft_ids:
+                    try:
+                        db.supabase.table("quote_items_v2").delete().eq("quote_id", qid).execute()
+                    except Exception:
+                        pass
+                    try:
+                        db.supabase.table("quote_items").delete().eq("quote_id", qid).execute()
+                    except Exception:
+                        pass
+                    db.delete("quotes", qid)
+                st.success(f"✅ 已清空 {len(draft_ids)} 条草稿")
+                st.rerun()
+            except Exception as e:
+                st.error(f"清空失败: {e}")
+    st.markdown("---")
+
     STATUS_MAP = {
         "draft":    ("📝 草稿",  "#888888"),
         "sent":     ("📤 已发送","#2196F3"),
@@ -1027,15 +1051,36 @@ def _section_quote_list():
             if q.get("remark"):
                 st.caption(f"备注：{q['remark']}")
 
-            new_status = st.selectbox(
-                "更新状态", ["draft","sent","accepted","rejected"],
-                index=["draft","sent","accepted","rejected"].index(status),
-                key=f"status_{q['id']}"
-            )
-            if st.button("更新状态", key=f"upd_{q['id']}"):
-                try:
-                    db.update("quotes", q["id"], {"status": new_status})
-                    st.success("已更新")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"更新失败: {e}")
+            col_upd, col_del = st.columns([3, 1])
+            with col_upd:
+                new_status = st.selectbox(
+                    "更新状态", ["draft","sent","accepted","rejected"],
+                    index=["draft","sent","accepted","rejected"].index(status),
+                    key=f"status_{q['id']}"
+                )
+                if st.button("更新状态", key=f"upd_{q['id']}", use_container_width=True):
+                    try:
+                        db.update("quotes", q["id"], {"status": new_status})
+                        st.success("已更新")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"更新失败: {e}")
+            with col_del:
+                st.write("")  # 占位对齐
+                st.write("")
+                if st.button("🗑️ 删除", key=f"del_{q['id']}", use_container_width=True, type="secondary"):
+                    try:
+                        # 先删明细，再删主单
+                        try:
+                            db.supabase.table("quote_items_v2").delete().eq("quote_id", q["id"]).execute()
+                        except Exception:
+                            pass
+                        try:
+                            db.supabase.table("quote_items").delete().eq("quote_id", q["id"]).execute()
+                        except Exception:
+                            pass
+                        db.delete("quotes", q["id"])
+                        st.success("已删除")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"删除失败: {e}")
